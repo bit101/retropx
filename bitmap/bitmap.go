@@ -18,6 +18,10 @@ func NewBitmap(w, h int) *Bitmap {
 	return &Bitmap{image.NewRGBA(image.Rect(0, 0, w, h)), color.RGBA{0, 0, 0, 255}}
 }
 
+func (b *Bitmap) Plot(x, y int) {
+	b.Set(x, y, b.Color)
+}
+
 func (b *Bitmap) Line(x0, y0, x1, y1 int) {
 	if math.Abs(float64(y1-y0)) < math.Abs(float64(x1-x0)) {
 		if x0 > x1 {
@@ -45,7 +49,7 @@ func (b *Bitmap) lineLow(x0, y0, x1, y1 int) {
 	d := 2*dy - dx
 	y := y0
 	for x := x0; x <= x1; x++ {
-		b.Set(x, y, b.Color)
+		b.Plot(x, y)
 		if d > 0 {
 			y += yi
 			d -= (2 * dx)
@@ -65,7 +69,7 @@ func (b *Bitmap) lineHigh(x0, y0, x1, y1 int) {
 	d := 2*dx - dy
 	x := x0
 	for y := y0; y <= y1; y++ {
-		b.Set(x, y, b.Color)
+		b.Plot(x, y)
 		if d > 0 {
 			x += xi
 			d -= (2 * dy)
@@ -81,17 +85,30 @@ func (b *Bitmap) Rect(x, y, w, h int) {
 	b.Line(x+w, y, x+w, y+h)
 }
 
+func (b *Bitmap) FillRect(x, y, w, h int) {
+	for yy := y; yy < y+h; yy++ {
+		for xx := x; xx < x+w; xx++ {
+			b.Plot(xx, yy)
+		}
+	}
+}
+
 func (b *Bitmap) Square(x, y, size int) {
 	b.Rect(x, y, size, size)
+}
+
+func (b *Bitmap) FillSquare(x, y, size int) {
+	b.FillRect(x, y, size, size)
 }
 
 func (b *Bitmap) Circle(x, y, r int) {
 	x0 := x + r
 	y0 := y
-	res := 10.0 / float64(r)
+	fr := float64(r)
+	res := 10.0 / fr
 	for a := 0.0; a < math.Pi*2; a += res {
-		x1 := x + int(math.Cos(a)*float64(r))
-		y1 := y + int(math.Sin(a)*float64(r))
+		x1 := x + int(math.Cos(a)*fr)
+		y1 := y + int(math.Sin(a)*fr)
 		b.Line(x0, y0, x1, y1)
 		x0 = x1
 		y0 = y1
@@ -99,15 +116,42 @@ func (b *Bitmap) Circle(x, y, r int) {
 	b.Line(x0, y0, x+r, y)
 }
 
-func (b *Bitmap) Oval(x, y, w, h int) {
-	rx := float64(w) / 2.0
-	ry := float64(h) / 2.0
-	x0 := x + int(rx)
+func (b *Bitmap) FillCircle(x, y, r int) {
+	for xx := x - r; xx <= x+r; xx++ {
+		for yy := y - r; yy <= y+r; yy++ {
+			if math.Hypot(float64(xx-x), float64(yy-y)) < float64(r) {
+				b.Plot(xx, yy)
+			}
+		}
+	}
+}
+
+func (b *Bitmap) Arc(x, y, r, start, end int) {
+	startRad := float64(start) * math.Pi / 180.0
+	endRad := float64(end) * math.Pi / 180.0
+	fr := float64(r)
+	x0 := x + int(math.Cos(startRad)*fr)
+	y0 := y + int(math.Sin(startRad)*fr)
+	res := 10.0 / fr
+	for a := startRad; a < endRad; a += res {
+		x1 := x + int(math.Cos(a)*fr)
+		y1 := y + int(math.Sin(a)*fr)
+		b.Line(x0, y0, x1, y1)
+		x0 = x1
+		y0 = y1
+	}
+	b.Line(x0, y0, x+int(math.Cos(endRad)*fr), y+int(math.Sin(endRad)*fr))
+}
+
+func (b *Bitmap) Oval(x, y, rx, ry int) {
+	frx := float64(rx)
+	fry := float64(ry)
+	x0 := x + rx
 	y0 := y
-	res := 10.0 / math.Max(rx, ry)
+	res := 10.0 / math.Max(frx, fry)
 	for a := 0.0; a < math.Pi*2; a += res {
-		x1 := x + int(math.Cos(a)*rx)
-		y1 := y + int(math.Sin(a)*ry)
+		x1 := x + int(math.Cos(a)*frx)
+		y1 := y + int(math.Sin(a)*fry)
 		b.Line(x0, y0, x1, y1)
 		x0 = x1
 		y0 = y1
@@ -115,6 +159,62 @@ func (b *Bitmap) Oval(x, y, w, h int) {
 	b.Line(x0, y0, x+int(rx), y)
 }
 
+// func (b *Bitmap) FillOval(x, y, rx, ry int) {
+// 	for xx := x - rx; xx <= x+rx; xx++ {
+// 		for yy := y - ry; yy <= y+ry; yy++ {
+// 			if math.Hypot(float64(xx-x), float64(yy-y)) < float64(r) {
+// 				b.Plot(xx, yy)
+// 			}
+// 		}
+// 	}
+// }
+
+func (b *Bitmap) BezierCurve(x0, y0, x1, y1, x2, y2, x3, y3 int) {
+	fx0 := float64(x0)
+	fy0 := float64(y0)
+	fx1 := float64(x1)
+	fy1 := float64(y1)
+	fx2 := float64(x2)
+	fy2 := float64(y2)
+	fx3 := float64(x3)
+	fy3 := float64(y3)
+	x := x0
+	y := y0
+	for t := 0.0; t < 1.0; t += 0.01 {
+		oneMinusT := 1.0 - t
+		m0 := oneMinusT * oneMinusT * oneMinusT
+		m1 := 3.0 * oneMinusT * oneMinusT * t
+		m2 := 3.0 * oneMinusT * t * t
+		m3 := t * t * t
+		xt := int(m0*fx0 + m1*fx1 + m2*fx2 + m3*fx3)
+		yt := int(m0*fy0 + m1*fy1 + m2*fy2 + m3*fy3)
+		b.Line(x, y, xt, yt)
+		x = xt
+		y = yt
+	}
+}
+
+func (b *Bitmap) QuadraticCurve(x0, y0, x1, y1, x2, y2 int) {
+	fx0 := float64(x0)
+	fy0 := float64(y0)
+	fx1 := float64(x1)
+	fy1 := float64(y1)
+	fx2 := float64(x2)
+	fy2 := float64(y2)
+	x := x0
+	y := y0
+	for t := 0.0; t < 1.0; t += 0.01 {
+		oneMinusT := 1.0 - t
+		m0 := oneMinusT * oneMinusT
+		m1 := 2.0 * oneMinusT * t
+		m2 := t * t
+		xt := int(m0*fx0 + m1*fx1 + m2*fx2)
+		yt := int(m0*fy0 + m1*fy1 + m2*fy2)
+		b.Line(x, y, xt, yt)
+		x = xt
+		y = yt
+	}
+}
 func (b *Bitmap) Save(filename string) {
 	f, err := os.Create(filename)
 	if err != nil {
