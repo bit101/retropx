@@ -79,10 +79,14 @@ func (b *Bitmap) lineHigh(x0, y0, x1, y1 int) {
 }
 
 func (b *Bitmap) Rect(x, y, w, h int) {
-	b.Line(x, y, x+w, y)
-	b.Line(x, y+h, x+w, y+h)
-	b.Line(x, y, x, y+h)
-	b.Line(x+w, y, x+w, y+h)
+	for xx := x; xx < x+w; xx++ {
+		b.Plot(xx, y)
+		b.Plot(xx, y+h)
+	}
+	for yy := y; yy < y+h; yy++ {
+		b.Plot(x, yy)
+		b.Plot(x+w, yy)
+	}
 }
 
 func (b *Bitmap) FillRect(x, y, w, h int) {
@@ -101,27 +105,63 @@ func (b *Bitmap) FillSquare(x, y, size int) {
 	b.FillRect(x, y, size, size)
 }
 
-func (b *Bitmap) Circle(x, y, r int) {
-	x0 := x + r
-	y0 := y
-	fr := float64(r)
-	res := 10.0 / fr
-	for a := 0.0; a < math.Pi*2; a += res {
-		x1 := x + int(math.Cos(a)*fr)
-		y1 := y + int(math.Sin(a)*fr)
-		b.Line(x0, y0, x1, y1)
-		x0 = x1
-		y0 = y1
+func (b *Bitmap) Circle(x, y, radius int) {
+	xx := radius - 1
+	yy := 0
+	dx := 1
+	dy := 1
+	err := dx - (radius << 1)
+
+	for xx >= yy {
+		b.Plot(x+xx, y+yy)
+		b.Plot(x+yy, y+xx)
+		b.Plot(x-yy, y+xx)
+		b.Plot(x-xx, y+yy)
+		b.Plot(x-xx, y-yy)
+		b.Plot(x-yy, y-xx)
+		b.Plot(x+yy, y-xx)
+		b.Plot(x+xx, y-yy)
+
+		if err <= 0 {
+			yy++
+			err += dy
+			dy += 2
+		}
+
+		if err > 0 {
+			xx--
+			dx += 2
+			err += dx - (radius << 1)
+		}
 	}
-	b.Line(x0, y0, x+r, y)
 }
 
-func (b *Bitmap) FillCircle(x, y, r int) {
-	for xx := x - r; xx <= x+r; xx++ {
-		for yy := y - r; yy <= y+r; yy++ {
-			if math.Hypot(float64(xx-x), float64(yy-y)) < float64(r) {
-				b.Plot(xx, yy)
-			}
+func (b *Bitmap) FillCircle(x, y, radius int) {
+	xx := radius - 1
+	yy := 0
+	dx := 1
+	dy := 1
+	err := dx - (radius << 1)
+
+	for xx >= yy {
+		for xa := x - xx; xa <= x+xx; xa++ {
+			b.Plot(xa, y+yy)
+			b.Plot(xa, y-yy)
+		}
+		for xa := x - yy; xa <= x+yy; xa++ {
+			b.Plot(xa, y+xx)
+			b.Plot(xa, y-xx)
+		}
+		if err <= 0 {
+			yy++
+			err += dy
+			dy += 2
+		}
+
+		if err > 0 {
+			xx--
+			dx += 2
+			err += dx - (radius << 1)
 		}
 	}
 }
